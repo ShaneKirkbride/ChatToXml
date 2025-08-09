@@ -29,6 +29,8 @@ python src/onnx_infer.py --prompt "Create order 555 for user Alice totaling 123.
 
 # 6) Offline UI
 python src/ui.py   # open http://127.0.0.1:7860
+# The interface displays training metrics, generation speed, and keeps a
+# history of prompts with their XML outputs for easy verification.
 ```
 
 Note: Don't commit trained weights; they're ignored by .gitignore. Use Releases/artifacts if you need to share binaries internally.
