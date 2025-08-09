@@ -1,0 +1,13 @@
+[run]
+source = src
+omit =
+    src/export_onnx.py
+    src/generate_with_fallback.py
+    src/synth_data.py
+    src/onnx_infer.py
+    src/train.py
+    src/repair.py
+    src/ui.py
+
+[report]
+show_missing = True
