@@ -4,12 +4,13 @@ from typing import List
 
 import gradio as gr
 from pathlib import Path
-from transformers import AutoTokenizer
 from optimum.onnxruntime import ORTModelForSeq2SeqLM
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 from config import MODEL_DIR, SCHEMA_DIR
 from xml_utils import pretty, validate_xml
+from synth_data import generate_dataset
+from train import main as train_main
 
 ONNX_DIR = Path(MODEL_DIR).parent / "onnx"
 
@@ -81,24 +82,52 @@ def generate_and_validate(prompt: str, schema: str, history: List[List[str]]):
     )
 
 
+def run_data_generation() -> str:
+    path = generate_dataset()
+    return f"Synthetic dataset generated at {path}"
+
+
+def run_training() -> tuple[str, str]:
+    train_main()
+    global MODEL, TOKENIZER, BACKEND
+    MODEL, TOKENIZER, BACKEND = _load_backend()
+    metrics = _load_training_metrics()
+    return "Training complete", metrics
+
+
 with gr.Blocks(title="Offline XML Generator") as app:
     gr.Markdown("# Offline XML Generator")
-    gr.Markdown(TRAINING_INFO)
-    with gr.Row():
-        prompt = gr.Textbox(label="Prompt")
-        schema = gr.Dropdown(choices=["user", "product", "order"], value="user", label="Schema")
-        submit = gr.Button("Generate")
-    xml_out = gr.Code(label="Generated XML", language="html")
-    status = gr.Markdown()
-    backend = gr.Markdown()
-    perf = gr.Markdown()
-    history_state = gr.State([])
-    history_view = gr.Dataframe(headers=["Prompt", "XML"], label="History", interactive=False)
-    submit.click(
-        fn=generate_and_validate,
-        inputs=[prompt, schema, history_state],
-        outputs=[xml_out, status, backend, perf, history_state, history_view],
-    )
+    mode = gr.Radio(["Validation", "Training"], value="Validation", label="Mode")
+
+    with gr.Column() as validation_panel:
+        with gr.Row():
+            prompt = gr.Textbox(label="Prompt")
+            schema = gr.Dropdown(choices=["user", "product", "order"], value="user", label="Schema")
+            submit = gr.Button("Generate")
+        xml_out = gr.Code(label="Generated XML", language="html")
+        status = gr.Markdown()
+        backend = gr.Markdown()
+        perf = gr.Markdown()
+        history_state = gr.State([])
+        history_view = gr.Dataframe(headers=["Prompt", "XML"], label="History", interactive=False)
+        submit.click(
+            fn=generate_and_validate,
+            inputs=[prompt, schema, history_state],
+            outputs=[xml_out, status, backend, perf, history_state, history_view],
+        )
+
+    with gr.Column(visible=False) as training_panel:
+        metrics_md = gr.Markdown(TRAINING_INFO)
+        gen_btn = gr.Button("Generate Synthetic Data")
+        train_btn = gr.Button("Train Model")
+        train_status = gr.Markdown()
+        gen_btn.click(fn=run_data_generation, outputs=train_status)
+        train_btn.click(fn=run_training, outputs=[train_status, metrics_md])
+
+    def _switch_mode(m: str):
+        return (gr.update(visible=m == "Validation"), gr.update(visible=m == "Training"))
+
+    mode.change(_switch_mode, inputs=mode, outputs=[validation_panel, training_panel])
 
 
 if __name__ == "__main__":
