@@ -4,7 +4,8 @@ from typing import List
 
 import gradio as gr
 from pathlib import Path
-from optimum.onnxruntime import ORTModelForSeq2Seq
+from transformers import AutoTokenizer
+from optimum.onnxruntime import ORTModelForSeq2SeqLM
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 from config import MODEL_DIR, SCHEMA_DIR
@@ -12,18 +13,27 @@ from xml_utils import pretty, validate_xml
 
 ONNX_DIR = Path(MODEL_DIR).parent / "onnx"
 
-
 def _load_backend():
+    """
+    Returns:
+        (model, tokenizer, backend_tag) where backend_tag is "ONNX" or "Torch".
+    """
     if ONNX_DIR.exists():
-        tok = T5Tokenizer.from_pretrained(str(ONNX_DIR))
-        model_path = ONNX_DIR / "model-quant.onnx"
-        if not model_path.exists():
-            model_path = ONNX_DIR / "model.onnx"
-        mdl = ORTModelForSeq2Seq.from_pretrained(str(ONNX_DIR), file_name=model_path.name)
+        # Both tokenizer and ONNX model files are in the same directory
+        tok = T5Tokenizer.from_pretrained(str(ONNX_DIR), local_files_only=True)
+
+        # Load ONNX Runtime LM model (auto-detects single or multi-file export)
+        mdl = ORTModelForSeq2SeqLM.from_pretrained(
+            str(ONNX_DIR),
+            local_files_only=True
+        )
         return mdl, tok, "ONNX"
+
+    # Fallback: regular PyTorch T5 (online or local cache/folder)
     tok = T5Tokenizer.from_pretrained(str(MODEL_DIR))
     mdl = T5ForConditionalGeneration.from_pretrained(str(MODEL_DIR))
     return mdl, tok, "Torch"
+
 
 
 def _load_training_metrics() -> str:
@@ -78,7 +88,7 @@ with gr.Blocks(title="Offline XML Generator") as app:
         prompt = gr.Textbox(label="Prompt")
         schema = gr.Dropdown(choices=["user", "product", "order"], value="user", label="Schema")
         submit = gr.Button("Generate")
-    xml_out = gr.Code(label="Generated XML", language="xml")
+    xml_out = gr.Code(label="Generated XML", language="html")
     status = gr.Markdown()
     backend = gr.Markdown()
     perf = gr.Markdown()
