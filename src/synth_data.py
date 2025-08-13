@@ -2,8 +2,11 @@ import csv
 import random
 from pathlib import Path
 
+# Default location for the generated dataset
 OUT = Path(__file__).resolve().parents[1] / "data" / "sample_data.csv"
 OUT.parent.mkdir(parents=True, exist_ok=True)
+
+# Default number of synthetic examples
 N = 2500
 
 NAMES = [
@@ -86,9 +89,25 @@ def order_example() -> tuple[str, str]:
 
 GENERATORS = [user_example, product_example, order_example]
 
-with open(OUT, "w", newline="", encoding="utf-8") as f:
-    writer = csv.writer(f)
-    writer.writerow(["input", "text_output"])
-    for _ in range(N):
-        nl, xml = random.choice(GENERATORS)()
-        writer.writerow([nl, xml])
+
+def generate_dataset(n: int = N, out_path: Path = OUT) -> Path:
+    """Generate a synthetic dataset and write it to ``out_path``.
+
+    Args:
+        n: Number of records to create.
+        out_path: Destination path for the CSV file.
+
+    Returns:
+        Path to the generated CSV file.
+    """
+    with out_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["input", "text_output"])
+        for _ in range(n):
+            nl, xml = random.choice(GENERATORS)()
+            writer.writerow([nl, xml])
+    return out_path
+
+
+if __name__ == "__main__":
+    generate_dataset()
