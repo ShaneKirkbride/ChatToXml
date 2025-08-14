@@ -104,6 +104,24 @@ with gr.Blocks(title="Offline XML Generator") as app:
             prompt = gr.Textbox(label="Prompt")
             schema = gr.Dropdown(choices=["user", "product", "order"], value="user", label="Schema")
             submit = gr.Button("Generate")
+        gr.Examples(
+            examples=[
+                [
+                    "Create a user named Alice with ID 123 and email alice@example.com",
+                    "user",
+                ],
+                [
+                    "Generate a product with id 42 named Widget priced at 9.99",
+                    "product",
+                ],
+                [
+                    "Create order 555 for user Alice totaling 123.45",
+                    "order",
+                ],
+            ],
+            inputs=[prompt, schema],
+            label="Example Prompts",
+        )
         xml_out = gr.Code(label="Generated XML", language="html")
         status = gr.Markdown()
         backend = gr.Markdown()
