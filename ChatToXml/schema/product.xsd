@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <xs:element name="product">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="sku" type="xs:string"/>
+        <xs:element name="name" type="xs:string"/>
+        <xs:element name="price" type="xs:decimal"/>
+        <xs:element name="currency" type="xs:string" default="USD"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
