@@ -50,9 +50,19 @@ The repository includes `src/synth_data.py`, which produces a synthetic dataset 
 python src/synth_data.py
 ```
 
-This writes `data/sample_data.csv`. To customize the dataset, modify the
-generators in `synth_data.py` or replace the CSV with your own examples following
-the same schema.
+This writes `data/sample_data.csv`. The generator accepts optional pools of
+names, product titles, and currency codes as well as a random seed:
+
+```python
+from synth_data import generate_dataset
+
+generate_dataset(
+    names=["Ada"], products=["Widget"], currencies=["GBP"], seed=0
+)
+```
+
+For more extensive changes, modify the generators in `synth_data.py` or replace
+the CSV with your own examples following the same schema.
 
 ## Training the Model
 
