@@ -1,7 +1,9 @@
 import argparse
+from pathlib import Path
 
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
+from batch_generate import generate_xml_files
 from config import MODEL_DIR, SCHEMA_DIR
 from repair import repair_to_schema
 from xml_utils import pretty, validate_xml
@@ -11,7 +13,19 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--prompt", required=True)
     ap.add_argument("--schema", choices=["user", "product", "order"], required=True)
+    ap.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Directory to write XML files. If provided, any quantity in the prompt "
+        "will be used to generate multiple files.",
+    )
     args = ap.parse_args()
+
+    if args.output_dir:
+        paths = generate_xml_files(args.prompt, args.schema, args.output_dir)
+        for p in paths:
+            print(p)
+        return
 
     tokenizer = T5Tokenizer.from_pretrained(MODEL_DIR)
     model = T5ForConditionalGeneration.from_pretrained(MODEL_DIR)
