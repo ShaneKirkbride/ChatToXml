@@ -1,6 +1,8 @@
 from pathlib import Path
+import shutil
+from zipfile import ZipFile
 
-# Directory for persisting generated XML files
+# Directory for persisting generated files
 OUTPUT_DIR = Path("data") / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -10,37 +12,48 @@ def _safe_path(name: str) -> Path:
     return OUTPUT_DIR / Path(name).name
 
 
-def create_xml_file(file_name: str, xml_content: str) -> str:
-    """Create a new XML file with the provided content."""
+def create_zip_file(file_name: str, source_zip: str) -> str:
+    """Persist an uploaded ZIP archive to the output directory."""
     path = _safe_path(file_name)
     if path.exists():
         return f"File {path} already exists."
-    path.write_text(xml_content, encoding="utf-8")
+    shutil.copy(Path(source_zip), path)
     return f"Created {path}"
 
 
-def read_xml_file(file_name: str) -> tuple[str, str]:
-    """Read an XML file and return its contents and status message."""
+def read_zip_file(file_name: str) -> tuple[str, str]:
+    """Read a ZIP archive and return a newline separated listing of its contents."""
     path = _safe_path(file_name)
     if not path.exists():
         return "", f"File {path} does not exist."
-    content = path.read_text(encoding="utf-8")
-    return content, f"Loaded {path}"
+    with ZipFile(path) as zf:
+        listing = "\n".join(zf.namelist())
+    return listing, f"Loaded {path}"
 
 
-def update_xml_file(file_name: str, xml_content: str) -> str:
-    """Update an existing XML file with new content."""
+def update_zip_file(file_name: str, source_zip: str) -> str:
+    """Replace the contents of an existing ZIP archive."""
     path = _safe_path(file_name)
     if not path.exists():
         return f"File {path} does not exist."
-    path.write_text(xml_content, encoding="utf-8")
+    shutil.copy(Path(source_zip), path)
     return f"Updated {path}"
 
 
-def delete_xml_file(file_name: str) -> str:
-    """Delete an XML file."""
+def delete_zip_file(file_name: str) -> str:
+    """Delete a ZIP archive."""
     path = _safe_path(file_name)
     if not path.exists():
         return f"File {path} does not exist."
     path.unlink()
     return f"Deleted {path}"
+
+
+def extract_zip_file(source_zip: str) -> str:
+    """Extract the given ZIP archive into OUTPUT_DIR."""
+    path = Path(source_zip)
+    if not path.exists():
+        return f"File {path} does not exist."
+    with ZipFile(path) as zf:
+        zf.extractall(OUTPUT_DIR)
+    return f"Extracted {path} to {OUTPUT_DIR}"
