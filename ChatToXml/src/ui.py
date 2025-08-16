@@ -122,7 +122,7 @@ with gr.Blocks(title="Offline XML Generator") as app:
             inputs=[prompt, schema],
             label="Example Prompts",
         )
-        xml_out = gr.Code(label="Generated XML", language="html")
+        xml_out = gr.Code(label="Generated XML", language="html", interactive=True)
         status = gr.Markdown()
         backend = gr.Markdown()
         perf = gr.Markdown()
