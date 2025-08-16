@@ -12,6 +12,12 @@ from config import MODEL_DIR, SCHEMA_DIR
 from xml_utils import pretty, validate_xml
 from synth_data import generate_dataset
 from train import main as train_main
+from file_store import (
+    create_xml_file,
+    read_xml_file,
+    update_xml_file,
+    delete_xml_file,
+)
 
 ONNX_DIR = Path(MODEL_DIR).parent / "onnx"
 
@@ -167,7 +173,17 @@ with gr.Blocks(title="Offline XML Generator") as app:
             inputs=[prompt, schema],
             label="Example Prompts",
         )
-        xml_out = gr.Code(label="Generated XML", language="html")
+        with gr.Row():
+            xml_out = gr.Code(label="Generated XML", language="html")
+            with gr.Column():
+                file_name = gr.Textbox(label="File Name", value="output.xml")
+                with gr.Row():
+                    create_btn = gr.Button("Create")
+                    read_btn = gr.Button("Read")
+                with gr.Row():
+                    update_btn = gr.Button("Update")
+                    delete_btn = gr.Button("Delete")
+                file_status = gr.Markdown()
         status = gr.Markdown()
         backend = gr.Markdown()
         perf = gr.Markdown()
@@ -177,6 +193,18 @@ with gr.Blocks(title="Offline XML Generator") as app:
             fn=generate_and_validate,
             inputs=[prompt, schema, auto_repair, history_state],
             outputs=[xml_out, status, backend, perf, history_state, history_view],
+        )
+        create_btn.click(
+            fn=create_xml_file, inputs=[file_name, xml_out], outputs=file_status
+        )
+        read_btn.click(
+            fn=read_xml_file, inputs=[file_name], outputs=[xml_out, file_status]
+        )
+        update_btn.click(
+            fn=update_xml_file, inputs=[file_name, xml_out], outputs=file_status
+        )
+        delete_btn.click(
+            fn=delete_xml_file, inputs=[file_name], outputs=file_status
         )
 
     with gr.Column(visible=False) as training_panel:
