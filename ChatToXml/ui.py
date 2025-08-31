@@ -7,6 +7,7 @@ import gradio as gr
 from pathlib import Path
 from optimum.onnxruntime import ORTModelForSeq2SeqLM
 from transformers import T5ForConditionalGeneration, T5Tokenizer
+import plotly.graph_objects as go
 
 from config import MODEL_DIR, SCHEMA_DIR
 from xml_utils import pretty, validate_xml
@@ -64,29 +65,66 @@ def _load_backend():
 
 
 
-def _load_training_metrics() -> str:
+def _load_training_metrics() -> tuple[str, go.Figure]:
     trainer_state = Path(MODEL_DIR) / "trainer_state.json"
     if not trainer_state.exists():
-        return "Training metrics not available."
+        return "Training metrics not available.", go.Figure()
     with trainer_state.open() as f:
         state = json.load(f)
-    train_loss = None
-    eval_loss = None
+
+    train_epochs: list[float] = []
+    train_losses: list[float] = []
+    eval_epochs: list[float] = []
+    eval_losses: list[float] = []
+    eval_accs: list[float] = []
+
     for entry in state.get("log_history", []):
-        if "train_loss" in entry:
-            train_loss = entry["train_loss"]
-        if "eval_loss" in entry:
-            eval_loss = entry["eval_loss"]
+        if "loss" in entry and "epoch" in entry:
+            train_epochs.append(entry["epoch"])
+            train_losses.append(entry["loss"])
+        if "eval_loss" in entry and "epoch" in entry:
+            eval_epochs.append(entry["epoch"])
+            eval_losses.append(entry["eval_loss"])
+            if "eval_accuracy" in entry:
+                eval_accs.append(entry["eval_accuracy"])
+
     metrics = []
-    if train_loss is not None:
-        metrics.append(f"train_loss: {train_loss:.4f}")
-    if eval_loss is not None:
-        metrics.append(f"eval_loss: {eval_loss:.4f}")
-    return "Training metrics - " + ", ".join(metrics)
+    if train_losses:
+        metrics.append(f"train_loss: {train_losses[-1]:.4f}")
+    if eval_losses:
+        metrics.append(f"eval_loss: {eval_losses[-1]:.4f}")
+    if eval_accs:
+        metrics.append(f"eval_accuracy: {eval_accs[-1]:.4f}")
+
+    fig = go.Figure()
+    if train_epochs:
+        fig.add_trace(
+            go.Scatter(x=train_epochs, y=train_losses, mode="lines+markers", name="Train Loss")
+        )
+    if eval_epochs:
+        fig.add_trace(
+            go.Scatter(x=eval_epochs, y=eval_losses, mode="lines+markers", name="Validation Loss")
+        )
+    if eval_epochs and eval_accs:
+        fig.add_trace(
+            go.Scatter(
+                x=eval_epochs,
+                y=eval_accs,
+                mode="lines+markers",
+                name="Validation Accuracy",
+                yaxis="y2",
+            )
+        )
+        fig.update_layout(
+            yaxis2=dict(title="Accuracy", overlaying="y", side="right")
+        )
+    fig.update_layout(title="Training Metrics", xaxis_title="Epoch", yaxis_title="Loss")
+
+    return "Training metrics - " + ", ".join(metrics), fig
 
 
 MODEL, TOKENIZER, BACKEND = _load_backend()
-TRAINING_INFO = _load_training_metrics()
+TRAINING_INFO, TRAINING_FIG = _load_training_metrics()
 
 
 def generate_and_validate(prompt: str, schema: str, do_repair: bool, history: List[List[str]]):
@@ -138,12 +176,12 @@ def run_data_generation() -> str:
     return f"Synthetic dataset generated at {path}"
 
 
-def run_training() -> tuple[str, str]:
+def run_training() -> tuple[str, str, go.Figure]:
     train_main()
     global MODEL, TOKENIZER, BACKEND
     MODEL, TOKENIZER, BACKEND = _load_backend()
-    metrics = _load_training_metrics()
-    return "Training complete", metrics
+    metrics, fig = _load_training_metrics()
+    return "Training complete", metrics, fig
 
 
 with gr.Blocks(title="Offline XML Generator") as app:
@@ -216,11 +254,12 @@ with gr.Blocks(title="Offline XML Generator") as app:
 
     with gr.Column(visible=False) as training_panel:
         metrics_md = gr.Markdown(TRAINING_INFO)
+        metrics_plot = gr.Plot(value=TRAINING_FIG)
         gen_btn = gr.Button("Generate Synthetic Data")
         train_btn = gr.Button("Train Model")
         train_status = gr.Markdown()
         gen_btn.click(fn=run_data_generation, outputs=train_status)
-        train_btn.click(fn=run_training, outputs=[train_status, metrics_md])
+        train_btn.click(fn=run_training, outputs=[train_status, metrics_md, metrics_plot])
 
     def _switch_mode(m: str):
         return (gr.update(visible=m == "Validation"), gr.update(visible=m == "Training"))

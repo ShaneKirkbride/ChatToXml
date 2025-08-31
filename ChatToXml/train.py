@@ -8,9 +8,11 @@ from transformers import (
     DataCollatorForSeq2Seq,
     T5ForConditionalGeneration,
     T5Tokenizer,
-    Trainer,
-    TrainingArguments,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
 )
+import numpy as np
+import evaluate
 
 from config import DATA_CSV, MODEL_DIR
 
@@ -47,7 +49,7 @@ def main() -> None:
     tmp_out = Path(f"{MODEL_DIR}_run_{ts}")
 
     dataset = load_dataset("csv", data_files=str(DATA_CSV))["train"].train_test_split(
-        test_size=0.1, seed=42
+        test_size=0.2, seed=42
     )
 
     tokenizer = T5Tokenizer.from_pretrained(MODEL_NAME)
@@ -68,7 +70,18 @@ def main() -> None:
     # Collator handles label padding to -100 automatically for seq2seq
     collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 
-    args = TrainingArguments(
+    accuracy = evaluate.load("accuracy")
+
+    def compute_metrics(eval_pred):
+        preds, labels = eval_pred
+        if isinstance(preds, tuple):
+            preds = preds[0]
+        labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+        return {"accuracy": accuracy.compute(predictions=decoded_preds, references=decoded_labels)["accuracy"]}
+
+    args = Seq2SeqTrainingArguments(
         output_dir=str(tmp_out),           # write to temp dir
         per_device_train_batch_size=8,
         per_device_eval_batch_size=8,
@@ -81,15 +94,17 @@ def main() -> None:
         fp16=False,
         report_to=[],
         save_safetensors=True,             # set False if you still hit file locks
+        predict_with_generate=True,
     )
 
-    trainer = Trainer(
+    trainer = Seq2SeqTrainer(
         model=model,
         args=args,
         train_dataset=tokenized["train"],
         eval_dataset=tokenized["test"],
         data_collator=collator,
         tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
     )
 
     trainer.train()
