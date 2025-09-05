@@ -52,3 +52,15 @@ def test_safe_path(monkeypatch, tmp_path):
     file_store.create_zip_file("../evil.zip", str(src_zip))
     # Path traversal should be sanitized
     assert (tmp_path / "evil.zip").exists()
+
+
+def test_update_zip_file_missing_paths(monkeypatch, tmp_path):
+    monkeypatch.setattr(file_store, "OUTPUT_DIR", tmp_path)
+    src_zip = _make_zip(tmp_path, "src.zip")
+    file_store.create_zip_file("archive.zip", str(src_zip))
+
+    missing_src = file_store.update_zip_file("archive.zip", "")
+    assert "No source path provided." in missing_src
+
+    missing_name = file_store.update_zip_file("", str(src_zip))
+    assert "No file name provided." in missing_name
