@@ -32,11 +32,24 @@ def read_zip_file(file_name: str) -> tuple[str, str]:
 
 
 def update_zip_file(file_name: str, source_zip: str) -> str:
-    """Replace the contents of an existing ZIP archive."""
+    """Replace the contents of an existing ZIP archive.
+
+    Returns a helpful message if required paths are missing or invalid.
+    """
+    if not file_name:
+        return "No file name provided."
+    if not source_zip:
+        return "No source path provided."
+
     path = _safe_path(file_name)
     if not path.exists():
         return f"File {path} does not exist."
-    shutil.copy(Path(source_zip), path)
+
+    src_path = Path(source_zip)
+    if not src_path.exists():
+        return f"File {src_path} does not exist."
+
+    shutil.copy(src_path, path)
     return f"Updated {path}"
 
 
